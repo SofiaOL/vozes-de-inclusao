@@ -108,6 +108,9 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .mv button{appearance:none;border:0;background:none;color:var(--muted);cursor:pointer;width:32px;height:24px;border-radius:7px;font-size:13px}
 .mv button:hover{background:var(--bg);color:var(--fg)}
 .bgrow{display:flex;gap:10px;flex-wrap:wrap}
+.addchip{border-style:dashed;color:var(--accent)}
+.addchip b{font-size:17px;line-height:1;width:20px;text-align:center}
+.addpick{flex-basis:100%;display:grid;gap:10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
 .seg{display:inline-flex;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:3px}
 .seg button{appearance:none;border:0;background:none;border-radius:999px;padding:7px 14px;font-weight:700;font-size:13px;cursor:pointer;color:var(--muted)}
 .seg button.on{background:var(--fg);color:var(--bg)}
@@ -543,7 +546,25 @@ function renderLive(){
   songArtists().forEach(function(a,i){var b=document.createElement("button");b.type="button";b.className="chip"+(active[a.id]?" on":"");b.style.setProperty("--c",a.color);
     b.innerHTML='<i></i><span></span>'+(i<9?'<kbd>'+(i+1)+'</kbd>':'');b.querySelector("span").textContent=a.name||"Sem nome";b.setAttribute("aria-pressed",active[a.id]?"true":"false");
     b.onclick=function(){toggleArtist(a)};box.appendChild(b)});
+  /* botão para juntar mais cantores a esta música, já existentes ou novos */
+  var add=document.createElement("button");add.type="button";add.className="chip addchip"+(addOpen?" on":"");add.innerHTML='<b>+</b><span>Adicionar cantor</span>';
+  add.onclick=function(){addOpen=!addOpen;renderLive();if(addOpen){var f=document.getElementById("newSinger");if(f&&!f.closest(".addpick").querySelector(".chip"))f.focus()}};box.appendChild(add);
+  if(addOpen){
+    var pk=document.createElement("div");pk.className="addpick";
+    var ids=songArtists().map(function(a){return a.id}),others=S.artists.filter(function(a){return ids.indexOf(a.id)<0});
+    function addToSong(a){if(s){if(!s.artists.length)s.artists=ids.slice();if(s.artists.indexOf(a.id)<0)s.artists.push(a.id)}active[a.id]=true;addOpen=false;save();renderLive()}
+    if(others.length){var lab=document.createElement("span");lab.className="hint";lab.textContent="Juntar a esta música:";pk.appendChild(lab);
+      var row=document.createElement("div");row.className="chips";
+      others.forEach(function(a){var b=document.createElement("button");b.type="button";b.className="chip on";b.style.setProperty("--c",a.color);b.innerHTML="<i></i><span></span>";b.querySelector("span").textContent=a.name||"Sem nome";b.onclick=function(){addToSong(a)};row.appendChild(b)});
+      pk.appendChild(row)}
+    var fm=document.createElement("form");fm.className="row";fm.innerHTML='<input type="text" id="newSinger" placeholder="Nome do novo cantor" aria-label="Nome do novo cantor" style="flex:1;min-width:0"><button class="btn primary" type="submit">Criar</button>';
+    fm.onsubmit=function(e){e.preventDefault();var nm=fm.querySelector("input").value.trim();
+      var used=S.artists.map(function(a){return a.color});var col=(COLORS.filter(function(c){return used.indexOf(c[1])<0})[0]||COLORS[S.artists.length%COLORS.length])[1];
+      var a={id:uid(),name:nm||("Cantor "+(S.artists.length+1)),color:col};S.artists.push(a);if(S.example){S.example=false}addToSong(a)};
+    pk.appendChild(fm);box.appendChild(pk);
+  }
 }
+var addOpen=false;
 function toggleArtist(a){active[a.id]=!active[a.id];if(false)setTimeout(function(){labels.push({x:pos,id:a.id,name:a.name||"Sem nome"})},900);renderLive()}
 document.getElementById("prevSong").onclick=function(){goSong(cur-1)};
 document.getElementById("nextSong").onclick=function(){goSong(cur+1)};
