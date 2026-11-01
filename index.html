@@ -157,7 +157,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
         <div class="srcs">
           <button class="btn" type="button" id="srcMic">Microfone</button>
           <label class="btn" for="fileIn" id="srcFile">Música</label>
-          <button class="btn on" type="button" id="srcSim">Simulação</button>
+          <button class="btn" type="button" id="srcSim">Simulação</button>
         </div>
         <input type="file" id="fileIn" accept="audio/*" hidden>
         <div class="row" id="fileRow" hidden><button class="btn" type="button" id="playPause">Pausa</button><span class="hint" id="fileName" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1"></span></div>
@@ -371,7 +371,7 @@ function render(t){
 function drawOverview(c,w,h){paintFrame(c,[w/W,0,0,h/H,0,0])}
 
 /* ---------- áudio ---------- */
-var ac=null,an=null,fbuf=null,srcNode=null,audioEl=null,micStream=null,mode="sim";
+var ac=null,an=null,fbuf=null,srcNode=null,audioEl=null,micStream=null,mode="off";
 var lowAvg=.2,lastBeat=0,voiceS=0,tbuf=null,floorV=.02,peakV=.12,simNext=0,simPhrase=0,simOn=true;
 function ensureAC(){if(!ac){var C=window.AudioContext||window.webkitAudioContext;ac=new C();an=ac.createAnalyser();an.fftSize=2048;an.smoothingTimeConstant=.6;fbuf=new Uint8Array(an.frequencyBinCount);tbuf=new Uint8Array(an.fftSize)}if(ac.state==="suspended")ac.resume()}
 function band(lo,hi){var bw=ac.sampleRate/an.fftSize,a=Math.max(1,Math.floor(lo/bw)),b=Math.min(fbuf.length-1,Math.ceil(hi/bw)),s=0;for(var i=a;i<=b;i++)s+=fbuf[i];return s/(b-a+1)/255}
@@ -394,18 +394,21 @@ function readAudio(t){
   voiceS=voiceS*.5+v*.5;
   return {voice:voiceS,voiceRaw:v,beat:beat};
 }
-function setMode(m){mode=m;
+function setMode(m){mode=m;if(m==="mic"||m==="sim"){S.mode=m;save()}
   document.getElementById("srcMic").classList.toggle("on",m==="mic");document.getElementById("srcFile").classList.toggle("on",m==="file");document.getElementById("srcSim").classList.toggle("on",m==="sim");
   document.getElementById("fileRow").hidden=m!=="file";if(m!=="file"&&audioEl)audioEl.pause();
   if(m!=="mic"&&micStream){micStream.getTracks().forEach(function(tr){tr.stop()});micStream=null}}
 function connect(node){if(srcNode){try{srcNode.disconnect()}catch(e){}}srcNode=node;node.connect(an)}
 document.getElementById("srcSim").onclick=function(){setMode("sim")};
-document.getElementById("srcMic").onclick=function(){
+function startMic(quiet){
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){toast("Este browser não dá acesso ao microfone. Usa o Chrome.");return}
   ensureAC();
-  navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}}).then(function(st){micStream=st;connect(ac.createMediaStreamSource(st));setMode("mic");toast("Microfone ligado. As vozes já estão a desenhar.")})
-  .catch(function(){toast("O microfone está bloqueado aqui. Abre o ficheiro mural-das-vozes.html no Chrome para usar o microfone.",6000)});
-};
+  navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}}).then(function(st){micStream=st;connect(ac.createMediaStreamSource(st));setMode("mic");if(!quiet)toast("Microfone ligado. Fala ou canta: a linha só ondula com a tua voz.")})
+  .catch(function(){if(!quiet)toast("O Chrome não deu acesso ao microfone. Carrega no cadeado ao lado do endereço e permite o microfone.",7000)});
+}
+document.getElementById("srcMic").onclick=function(){startMic(false)};
+/* o som do browser só arranca depois de um clique ou tecla */
+["pointerdown","keydown"].forEach(function(ev){document.addEventListener(ev,function(){if(ac&&ac.state==="suspended")ac.resume()})});
 document.getElementById("fileIn").onchange=function(e){
   var f=e.target.files&&e.target.files[0];if(!f)return;ensureAC();
   if(!audioEl){audioEl=new Audio();audioEl.loop=true;audioEl._node=ac.createMediaElementSource(audioEl)}
@@ -569,6 +572,7 @@ document.getElementById("stagebox").style.background="#000";
 if(!S.example){document.getElementById("exA").hidden=true;document.getElementById("exS").hidden=true}
 resize();
 goSong(0,true);
+if(S.mode==="mic")startMic(true);else if(S.mode==="sim")setMode("sim");
 var pre=10;T0=performance.now()-pre*1000;
 
 for(var tt=0;tt<pre;tt+=1/30){if(Math.abs(tt-4)<1/60){newChapter()}step(tt,1/30,readAudio(tt))}
