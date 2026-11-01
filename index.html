@@ -283,32 +283,36 @@ function pickMix(cols,key){var bad=cols.concat([songMix["_last"+key]]);var opts=
 function mixFor(mem){var key=mem.map(function(a){return a.id}).sort().join("+");if(!songMix[key])songMix[key]=pickMix(mem.map(function(a){return a.color}),key);return songMix[key]}
 
 function step(t,dt,au){
-  var song=songArtists(),n=song.length;
+  var song=songArtists();
   if(au.beat)swell=1;swell=Math.max(0,swell-dt*1.8);
   bgT=Math.min(1,bgT+dt/1.2);
   var T=thick(),room=Math.max(30,(H-T)/2-14+T*.15);
+  /* só aparecem as linhas de quem está ligado em "Quem está a cantar" */
+  var vis=song.filter(function(a){return active[a.id]}),n=vis.length;
   S.artists.forEach(function(a,idx){
     var l=lanes[a.id];
-    if(!l)l=lanes[a.id]={ph:0,lam:1900*(1+((idx*37)%13-6)/100),a:0,amp:room*.8,spd:1.4,draw:0,erase:0,state:"off",vary:Math.random()*6.28};
-    var si=song.indexOf(a),inSong=si>=0;
-    if(inSong&&(l.state==="off"||l.state==="leaving")){l.state="entering";l.draw=0;l.erase=0;l.ph=si/Math.max(1,n)*Math.PI*2+Math.PI*.15}
-    if(!inSong&&(l.state==="entering"||l.state==="on")){l.state="leaving";l.erase=0}
-    if(l.state==="entering"){l.draw=Math.min(1,l.draw+dt/1.8);if(l.draw>=1)l.state="on"}
-    if(l.state==="leaving"){l.erase=Math.min(1,l.erase+dt/1.6);if(l.erase>=1){l.state="off";l.draw=0}}
-    var sing=inSong&&active[a.id];
-    /* a voz manda: em silêncio a linha fica quase lisa e lenta; a cantar ganha ondas grandes e rápidas */
-    var tgt=sing?au.voice:0;l.a+=(tgt-l.a)*Math.min(1,dt*(tgt>l.a?9:2.4));
-    var tAmp=room*(.1+.9*l.a)+room*.15*swell*(sing?1:0);
-    l.amp+=(Math.min(room,tAmp)-l.amp)*Math.min(1,dt*4);
-    l.spd+=((.5+2.6*l.a+.8*swell*(sing?1:0))-l.spd)*Math.min(1,dt*3);
-    if(!paused)l.ph+=dt*l.spd;
+    if(!l)l=lanes[a.id]={ph:0,lam:1900*(1+((idx*37)%13-6)/100),a:0,amp:room*.2,spd:.6,draw:0,erase:0,state:"off",rip:0,ra:0};
+    var vi=vis.indexOf(a),on=vi>=0;
+    if(on&&(l.state==="off"||l.state==="leaving")){l.state="entering";l.draw=0;l.erase=0;l.ph=vi/Math.max(1,n)*Math.PI*2+Math.PI*.15}
+    if(!on&&(l.state==="entering"||l.state==="on")){l.state="leaving";l.erase=0}
+    if(l.state==="entering"){l.draw=Math.min(1,l.draw+dt/1.4);if(l.draw>=1)l.state="on"}
+    if(l.state==="leaving"){l.erase=Math.min(1,l.erase+dt/1.2);if(l.erase>=1){l.state="off";l.draw=0}}
+    /* a voz manda: em silêncio a linha fica quase lisa e lenta; a cantar ganha ondas grandes e rápidas e vibra */
+    var tgt=on?au.voice:0;l.a+=(tgt-l.a)*Math.min(1,dt*(tgt>l.a?14:3));
+    var tAmp=room*(.08+.92*l.a)+room*.15*swell*(on?1:0);
+    l.amp+=(Math.min(room,tAmp)-l.amp)*Math.min(1,dt*5);
+    l.spd+=((.45+2.8*l.a+.8*swell*(on?1:0))-l.spd)*Math.min(1,dt*4);
+    var rT=Math.min(22,room*.12)*Math.min(1,au.voiceRaw*1.4)*(on?1:0);
+    l.ra+=(rT-l.ra)*Math.min(1,dt*(rT>l.ra?20:6));
+    if(!paused){l.ph+=dt*l.spd;l.rip+=dt*(28+14*l.a)}
   });
 }
 function newChapter(){
   bgFrom=chapters.length?chapters[chapters.length-1].bg:null;bgT=bgFrom?0:1;
   chapters.push({n:cur+1,bg:songBg()});songMix={_keep:1};
 }
-function waveY(l,x){return H/2+l.amp*Math.sin(x/l.lam*Math.PI*2-l.ph)}
+/* vibração: a linha inteira treme com a voz (sem dobrar a forma, para continuar lisa) */
+function waveY(l,x){return H/2+l.amp*Math.sin(x/l.lam*Math.PI*2-l.ph)+l.ra*Math.sin(l.rip)+l.ra*.18*Math.sin(x/900*Math.PI*2-l.rip*.5)}
 function linePath(a){
   var l=lanes[a.id];if(!l||l.state==="off")return null;
   var T=thick(),ext=T/2+40,x0=-ext,x1=W+ext;
@@ -384,7 +388,7 @@ function readAudio(t){
     if(lo>lowAvg*1.28&&lo>.28/sens&&t-lastBeat>.24){beat=true;lastBeat=t}
   }
   voiceS=voiceS*.5+v*.5;
-  return {voice:voiceS,beat:beat};
+  return {voice:voiceS,voiceRaw:v,beat:beat};
 }
 function setMode(m){mode=m;
   document.getElementById("srcMic").classList.toggle("on",m==="mic");document.getElementById("srcFile").classList.toggle("on",m==="file");document.getElementById("srcSim").classList.toggle("on",m==="sim");
