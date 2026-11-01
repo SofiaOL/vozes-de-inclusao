@@ -299,9 +299,11 @@ function step(t,dt,au){
     if(l.state==="leaving"){l.erase=Math.min(1,l.erase+dt/1.2);if(l.erase>=1){l.state="off";l.draw=0}}
     /* a voz manda: em silêncio a linha fica quase lisa e lenta; a cantar ganha ondas grandes e rápidas e vibra */
     var tgt=on?au.voice:0;l.a+=(tgt-l.a)*Math.min(1,dt*(tgt>l.a?14:3));
-    var tAmp=room*(.08+.92*l.a)+room*.15*swell*(on?1:0);
+    /* em silêncio: linha completamente lisa e parada */
+    var tAmp=room*l.a+room*.15*swell*l.a;
     l.amp+=(Math.min(room,tAmp)-l.amp)*Math.min(1,dt*5);
-    l.spd+=((.45+2.8*l.a+.8*swell*(on?1:0))-l.spd)*Math.min(1,dt*4);
+    l.spd+=((3.2*l.a+.8*swell*l.a)-l.spd)*Math.min(1,dt*4);
+    var offT=n>1?(vi/(n-1)-.5)*room*1.3:0;if(on)l.off=(l.off==null?offT:l.off+(offT-l.off)*Math.min(1,dt*2));
     var rT=Math.min(22,room*.12)*Math.min(1,au.voiceRaw*1.4)*(on?1:0);
     l.ra+=(rT-l.ra)*Math.min(1,dt*(rT>l.ra?20:6));
     if(!paused){l.ph+=dt*l.spd;l.rip+=dt*(28+14*l.a)}
@@ -312,7 +314,7 @@ function newChapter(){
   chapters.push({n:cur+1,bg:songBg()});songMix={_keep:1};
 }
 /* vibração: a linha inteira treme com a voz (sem dobrar a forma, para continuar lisa) */
-function waveY(l,x){return H/2+l.amp*Math.sin(x/l.lam*Math.PI*2-l.ph)+l.ra*Math.sin(l.rip)+l.ra*.18*Math.sin(x/900*Math.PI*2-l.rip*.5)}
+function waveY(l,x){return H/2+(l.off||0)+l.amp*Math.sin(x/l.lam*Math.PI*2-l.ph)+l.ra*Math.sin(l.rip)+l.ra*.18*Math.sin(x/900*Math.PI*2-l.rip*.5)}
 function linePath(a){
   var l=lanes[a.id];if(!l||l.state==="off")return null;
   var T=thick(),ext=T/2+40,x0=-ext,x1=W+ext;
@@ -383,8 +385,10 @@ function readAudio(t){
     an.getByteFrequencyData(fbuf);var lo=band(40,160);
     /* volume (RMS) com ganho automático: ajusta-se sozinho ao microfone e à sala */
     an.getByteTimeDomainData(tbuf);var sum=0;for(var q=0;q<tbuf.length;q++){var d=(tbuf[q]-128)/128;sum+=d*d}var rms=Math.sqrt(sum/tbuf.length);
-    floorV=rms<floorV?rms:floorV+(rms-floorV)*.0015;peakV=rms>peakV?rms:Math.max(floorV+.04,peakV*.9985);
-    v=Math.max(0,Math.min(1,((rms-floorV)/Math.max(.04,peakV-floorV))*1.25*sens-.12));lowAvg=lowAvg*.94+lo*.06;
+    floorV=rms<floorV?rms:floorV+(rms-floorV)*.0015;peakV=rms>peakV?rms:Math.max(floorV+.06,peakV*.9996);
+    /* porta de silêncio: abaixo do ruído da sala não há onda */
+    var gate=rms>floorV*1.9+.006/sens;
+    v=gate?Math.max(0,Math.min(1,((rms-floorV)/Math.max(.06,peakV-floorV))*1.25*sens-.15)):0;lowAvg=lowAvg*.94+lo*.06;
     if(lo>lowAvg*1.28&&lo>.28/sens&&t-lastBeat>.24){beat=true;lastBeat=t}
   }
   voiceS=voiceS*.5+v*.5;
