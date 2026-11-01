@@ -301,14 +301,15 @@ function step(t,dt,au){
     if(on&&(l.state==="off"||l.state==="leaving")){l.state="entering";l.draw=0;l.erase=0;l.ph=vi/Math.max(1,n)*Math.PI*2+Math.PI*.15}
     if(!on&&(l.state==="entering"||l.state==="on")){if(l.draw<=0)l.state="off";else{l.state="leaving";l.erase=0}}
     /* a linha desenha-se como uma caneta: a ponta só avança enquanto há voz */
-    if(l.state==="entering"){if(au.voiceRaw>.12&&!paused)l.draw=Math.min(1,l.draw+dt*(.12+.18*au.voice));if(l.draw>=1)l.state="on"}
+    if(l.state==="entering"){var dv=au.voiceRaw>.12?(.13+.17*au.voice):0;l.dv=(l.dv||0)+(dv-(l.dv||0))*Math.min(1,dt*3);if(!paused)l.draw=Math.min(1,l.draw+dt*l.dv);if(l.draw>=1)l.state="on"}
     if(l.state==="leaving"){l.erase=Math.min(1,l.erase+dt/1.2);if(l.erase>=1){l.state="off";l.draw=0}}
     /* a voz manda: em silêncio a linha fica quase lisa e lenta; a cantar ganha ondas grandes e rápidas e vibra */
-    var tgt=on?au.voice:0;l.a+=(tgt-l.a)*Math.min(1,dt*(tgt>l.a?4:1.6));
+    var tgt=on?au.voice:0;l.a+=(tgt-l.a)*Math.min(1,dt*(tgt>l.a?4:3.5));
     /* em silêncio: linha completamente lisa e parada */
     var tAmp=room*l.a+room*.15*swell*l.a;
-    l.amp+=(Math.min(room,tAmp)-l.amp)*Math.min(1,dt*2.2);
-    l.spd+=((3.2*l.a+.8*swell*l.a)-l.spd)*Math.min(1,dt*1.8);
+    l.amp+=(Math.min(room,tAmp)-l.amp)*Math.min(1,dt*3.5);
+    /* ritmo constante, como no vídeo de referência; a voz só acelera um pouco */
+    l.spd+=((1.7+1.1*l.a)-l.spd)*Math.min(1,dt*2);
     var offT=n>1?(vi/(n-1)-.5)*room*1.3:0;if(on)l.off=(l.off==null?offT:l.off+(offT-l.off)*Math.min(1,dt*2));
     var rT=Math.min(22,room*.12)*Math.min(1,au.voiceRaw*1.4)*(on?1:0);
     l.ra+=(rT-l.ra)*Math.min(1,dt*(rT>l.ra?20:6));
