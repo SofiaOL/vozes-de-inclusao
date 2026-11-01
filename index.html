@@ -176,7 +176,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
           <button class="btn primary" type="button" id="bReveal" hidden>Ver a história <kbd>R</kbd></button>
           <button class="btn" type="button" id="bFs">Ecrã inteiro <kbd>F</kbd></button>
         </div>
-        <button class="btn" type="button" id="bExport">Guardar imagem do ecrã</button>
+        <button class="btn" type="button" id="bExport" hidden>Guardar imagem do ecrã</button>
         <p class="keys"><kbd>1</kbd>–<kbd>9</kbd> liga ou desliga cada artista · <kbd>←</kbd> <kbd>→</kbd> muda de música</p>
       </div>
     </div>
@@ -202,8 +202,8 @@ input[type=range]{width:100%;accent-color:var(--accent)}
         <div style="display:grid;gap:10px"><label class="lab" for="speed" style="display:flex;justify-content:space-between">Velocidade da história <output id="speedOut" style="color:var(--accent)">100%</output></label>
           <input type="range" id="speed" min="40" max="220" value="100">
           </div>
-        <div style="display:grid;gap:10px"><label class="lab" for="thick" style="display:flex;justify-content:space-between">Espessura das linhas <output id="thickOut" style="color:var(--accent)">22%</output></label>
-          <input type="range" id="thick" min="8" max="40" value="22"><p class="hint">Percentagem da altura do ecrã. A linha tem sempre a mesma espessura. Muito grossa, as voltas deixam de ter buraco no meio.</p></div>
+        <div style="display:grid;gap:10px"><label class="lab" for="thick" style="display:flex;justify-content:space-between">Espessura das linhas <output id="thickOut" style="color:var(--accent)">67%</output></label>
+          <input type="range" id="thick" min="20" max="100" value="67"><p class="hint">Percentagem da altura do ecrã. A linha tem sempre a mesma espessura. </p></div>
         <div style="display:grid;gap:10px"><span class="lab">Microfone ao vivo</span>
           <p class="hint">Dentro do Claude o microfone está bloqueado. Para o concerto, abre o ficheiro <b>mural-das-vozes.html</b> no Chrome do computador ligado à mesa de som.</p></div>
       </div>
@@ -227,14 +227,14 @@ var INK="#1C1A3A";
 function uid(){return Math.random().toString(36).slice(2,9)}
 function defaults(){
   var a=[{id:"a1",name:"Fabio",color:"#EF7142"},{id:"a2",name:"Daniel",color:"#4BA3F2"},{id:"a3",name:"Artista 3",color:"#7357D6"},{id:"a4",name:"Artista 4",color:"#F2A33A"}];
-  return {example:true,artists:a,songs:[{id:"s1",title:"Abertura",artists:["a1","a2","a3","a4"]},{id:"s2",title:"Música 2",artists:["a1","a2"]},{id:"s3",title:"Música 3",artists:["a2","a3"]},{id:"s4",title:"Música 4",artists:["a1","a3","a4"]}],bg:"#FFF6E8",paletteV2:1,thickV2:1,thickV3:1,thickV4:1,thickV5:1,bgV3:1,thick:22,speed:100,cycle:false,sens:100,titles:true,names:true};
+  return {example:true,artists:a,songs:[{id:"s1",title:"Abertura",artists:["a1","a2","a3","a4"]},{id:"s2",title:"Música 2",artists:["a1","a2"]},{id:"s3",title:"Música 3",artists:["a2","a3"]},{id:"s4",title:"Música 4",artists:["a1","a3","a4"]}],bg:"#FFF6E8",paletteV2:1,thickV2:1,thickV3:1,thickV4:1,thickV5:1,thickV6:1,bgV3:1,thick:67,speed:100,cycle:false,sens:100,titles:true,names:true};
 }
 var KEY="mural-das-vozes-v2";
 var S;
 try{S=JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){S=null}
 if(!S||!S.artists)S=defaults();
 if(!S.paletteV2){S.artists.forEach(function(a){if(OLDMAP[a.color])a.color=OLDMAP[a.color]});if(S.bg==="#FFF6E8")S.bg="#171457";S.paletteV2=1}
-if(S.speed==null)S.speed=100;if(S.thick==null||!S.thickV2){S.thick=24;S.thickV2=1}if(!S.thickV5){S.thick=22;S.thickV3=1;S.thickV4=1;S.thickV5=1}if(!S.bgV3){S.bg="#FFF6E8";S.bgV3=1}
+if(S.speed==null)S.speed=100;if(S.thick==null||!S.thickV2){S.thick=24;S.thickV2=1}if(!S.thickV6){S.thick=67;S.thickV3=1;S.thickV4=1;S.thickV5=1;S.thickV6=1}if(!S.bgV3){S.bg="#FFF6E8";S.bgV3=1}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 function artistById(id){for(var i=0;i<S.artists.length;i++)if(S.artists[i].id===id)return S.artists[i];return null}
 var reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -298,8 +298,9 @@ function step(t,dt,au){
     if(!l)l=lanes[a.id]={ph:0,lam:1900*(1+((idx*37)%13-6)/100),a:0,amp:room*.2,spd:.6,draw:0,erase:0,state:"off",rip:0,ra:0};
     var vi=vis.indexOf(a),on=vi>=0;
     if(on&&(l.state==="off"||l.state==="leaving")){l.state="entering";l.draw=0;l.erase=0;l.ph=vi/Math.max(1,n)*Math.PI*2+Math.PI*.15}
-    if(!on&&(l.state==="entering"||l.state==="on")){l.state="leaving";l.erase=0}
-    if(l.state==="entering"){l.draw=Math.min(1,l.draw+dt/1.4);if(l.draw>=1)l.state="on"}
+    if(!on&&(l.state==="entering"||l.state==="on")){if(l.draw<=0)l.state="off";else{l.state="leaving";l.erase=0}}
+    /* a linha desenha-se como uma caneta: a ponta só avança enquanto há voz */
+    if(l.state==="entering"){if(au.voiceRaw>.12&&!paused)l.draw=Math.min(1,l.draw+dt*(.14+.3*au.voice));if(l.draw>=1)l.state="on"}
     if(l.state==="leaving"){l.erase=Math.min(1,l.erase+dt/1.2);if(l.erase>=1){l.state="off";l.draw=0}}
     /* a voz manda: em silêncio a linha fica quase lisa e lenta; a cantar ganha ondas grandes e rápidas e vibra */
     var tgt=on?au.voice:0;l.a+=(tgt-l.a)*Math.min(1,dt*(tgt>l.a?14:3));
@@ -375,10 +376,10 @@ function penPath(a){
 function resetPens(){pens={};camX=0}
 function linePath(a){if(S.style==="traco")return penPath(a);
   var l=lanes[a.id];if(!l||l.state==="off")return null;
-  var T=thick(),ext=T/2+40,x0=-ext,x1=W+ext;
-  var a0=x0+(x1-x0)*(l.state==="leaving"?easeIO(l.erase):0),a1=x0+(x1-x0)*easeIO(l.draw);
-  if(l.state==="leaving")a1=x1;
-  if(a1-a0<4)return null;
+  var T=thick(),ext=T/2+40,x0=T/2+36,x1=W+ext;
+  var a1=x0+(x1-x0)*l.draw,a0=x0+(a1-x0)*(l.state==="leaving"?easeIO(l.erase):0);
+  if(l.state==="entering"&&l.draw<=0)return null;
+  if(a1-a0<1)a1=a0+1;
   var p=new Path2D(),step=12,first=true,pts=[];
   for(var x=a0;x<a1;x+=step)pts.push([x,waveY(l,x)]);pts.push([a1,waveY(l,a1)]);
   p.moveTo(pts[0][0],pts[0][1]);
@@ -508,7 +509,7 @@ document.getElementById("allOn").onclick=function(){songArtists().forEach(functi
 /* ---------- ações ---------- */
 var bClear=document.getElementById("bClear"),clearArm=0;
 function doClear(){
-  if(clearArm&&Date.now()-clearArm<2500){Object.keys(lanes).forEach(function(k){lanes[k].state="off";lanes[k].draw=0});resetPens();clearArm=0;bClear.classList.remove("armed");bClear.firstChild.textContent="Limpar ";toast("As linhas voltam a desenhar-se.");return}
+  if(clearArm&&Date.now()-clearArm<2500){Object.keys(lanes).forEach(function(k){lanes[k].state="off";lanes[k].draw=0});resetPens();clearArm=0;bClear.classList.remove("armed");bClear.firstChild.textContent="Limpar ";toast("Ecrã limpo. As linhas voltam a nascer quando cantarem.");return}
   clearArm=Date.now();bClear.classList.add("armed");bClear.firstChild.textContent="Carrega outra vez ";
   setTimeout(function(){if(clearArm&&Date.now()-clearArm>=2400){clearArm=0;bClear.classList.remove("armed");bClear.firstChild.textContent="Limpar "}},2500);
 }
@@ -611,7 +612,7 @@ document.getElementById("addArtist").onclick=function(){
 };
 document.getElementById("addSong").onclick=function(){var s={id:uid(),title:"",artists:[]};S.songs.push(s);markEdited();renderSongs();renderLive();var el=document.getElementById("st-"+s.id);if(el)el.focus()};
 var speed=document.getElementById("speed");speed.oninput=function(){S.speed=+this.value;document.getElementById("speedOut").textContent=this.value+"%";save()};
-S.style="traco";
+S.style="onda";
 var thk=document.getElementById("thick");thk.oninput=function(){S.thick=+this.value;document.getElementById("thickOut").textContent=this.value+"%";save()};
 
 
