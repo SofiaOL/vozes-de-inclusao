@@ -288,6 +288,7 @@ function easeIO(t){t=Math.max(0,Math.min(1,t));return t<.5?4*t*t*t:1-Math.pow(-2
 function pickMix(cols,key){var bad=cols.concat([songMix["_last"+key]]);var opts=OVERLAP.filter(function(c){return bad.indexOf(c)<0});var c=opts[Math.floor(Math.random()*opts.length)];songMix["_last"+key]=c;return c}
 function mixFor(mem){var key=mem.map(function(a){return a.id}).sort().join("+");if(!songMix[key])songMix[key]=pickMix(mem.map(function(a){return a.color}),key);return songMix[key]}
 
+var syl={min:0,last:-9,armed:true,dir:1};
 function step(t,dt,au){
   if(S.style==="comboio"){stepTrain(t,dt,au);return}
   if(S.style==="traco"){if(au.beat)swell=1;swell=Math.max(0,swell-dt*1.8);bgT=Math.min(1,bgT+dt/1.2);stepPen(t,dt,au);return}
@@ -297,6 +298,10 @@ function step(t,dt,au){
   var T=thick(),room=Math.max(30,(H-T)/2-14+T*.15);
   /* só aparecem as linhas de quem está ligado em "Quem está a cantar" */
   var vis=song.filter(function(a){return active[a.id]}),n=vis.length;
+  /* sílabas: cada ataque da voz (rap) dá um "salto" à linha, no ritmo das palavras */
+  var vr=au.voiceRaw;syl.min=Math.min(syl.min,vr);syl.min+=(vr-syl.min)*Math.min(1,dt*2);
+  var onsetNow=false;if(vr-syl.min>.18&&vr>.2&&t-syl.last>.09&&syl.armed){onsetNow=true;syl.last=t;syl.armed=false;syl.min=vr;syl.dir=-syl.dir}
+  if(vr<syl.min+.08)syl.armed=true;
   S.artists.forEach(function(a,idx){
     var l=lanes[a.id];
     if(!l)l=lanes[a.id]={ph:0,lam:1900*(1+((idx*37)%13-6)/100),a:0,amp:room*.2,spd:.6,draw:0,erase:0,state:"off",rip:0,ra:0};
@@ -307,19 +312,23 @@ function step(t,dt,au){
     if(l.state==="entering"){var dv=au.voiceRaw>.12?(.13+.17*au.voice):0;l.dv=(l.dv||0)+(dv-(l.dv||0))*Math.min(1,dt*3);if(!paused)l.draw=Math.min(1,l.draw+dt*l.dv);if(l.draw>=1)l.state="on"}
     if(l.state==="leaving"){l.erase=Math.min(1,l.erase+dt/1.2);if(l.erase>=1){l.state="off";l.draw=0}}
     /* a voz manda: em silêncio a linha fica quase lisa e lenta; a cantar ganha ondas grandes e rápidas e vibra */
-    var tgt=on?au.voice:0;l.a+=(tgt-l.a)*Math.min(1,dt*(tgt>l.a?4:3.5));
+    var tgt=on?au.voice:0;l.a+=(tgt-l.a)*Math.min(1,dt*(tgt>l.a?11:5));
     /* em silêncio: linha completamente lisa e parada */
     var tAmp=room*l.a+room*.15*swell*l.a;
-    l.amp+=(Math.min(room,tAmp)-l.amp)*Math.min(1,dt*3.5);
+    l.amp+=(Math.min(room,tAmp)-l.amp)*Math.min(1,dt*7);
     /* ritmo constante, como no vídeo de referência; a voz só acelera um pouco */
-    l.spd+=((1.7+1.1*l.a)-l.spd)*Math.min(1,dt*2);
+    l.spd+=((1.8+5.2*l.a)-l.spd)*Math.min(1,dt*4);
+    /* salto de mola em cada sílaba: a linha inteira pula e volta, sem perder a forma lisa */
+    if(onsetNow&&on){l.bv=(l.bv||0)+syl.dir*(vi%2?-1:1)*room*7;l.phk=(l.phk||0)+.55}
+    l.bv=(l.bv||0)+(-(l.bounce||0)*140-(l.bv||0)*13)*Math.min(.05,dt);l.bounce=(l.bounce||0)+l.bv*dt;
+    var pk=(l.phk||0)*Math.min(1,dt*10);l.phk=(l.phk||0)-pk;if(!paused)l.ph+=pk;
     var offT=n>1?(vi/(n-1)-.5)*room*1.3:0;if(on)l.off=(l.off==null?offT:l.off+(offT-l.off)*Math.min(1,dt*2));
-    var rT=Math.min(22,room*.12)*Math.min(1,au.voiceRaw*1.4)*(on?1:0);
+    var rT=0;
     l.ra+=(rT-l.ra)*Math.min(1,dt*(rT>l.ra?20:6));
     if(!paused){l.ph+=dt*l.spd;l.rip+=dt*(28+14*l.a)}
-    l.tph=(l.tph||0)+dt*(1.4+1.8*l.a);
+    l.tph=(l.tph||0)+dt*(2.4+4*l.a);
     var tipT=l.state==="entering"?room*.7*l.a*Math.sin(l.tph+(vi>0?vi*2:0)):0;
-    l.tip=(l.tip||0)+(tipT-(l.tip||0))*Math.min(1,dt*2.5);
+    l.tip=(l.tip||0)+(tipT-(l.tip||0))*Math.min(1,dt*5);
   });
 }
 function newChapter(){
@@ -327,7 +336,7 @@ function newChapter(){
   chapters.push({n:cur+1,bg:songBg()});songMix={_keep:1};
 }
 /* vibração: a linha inteira treme com a voz (sem dobrar a forma, para continuar lisa) */
-function waveY(l,x){return H/2+(l.off||0)+l.amp*Math.sin(x/l.lam*Math.PI*2+l.ph)}
+function waveY(l,x){return H/2+(l.off||0)+(l.bounce||0)+l.amp*Math.sin(x/l.lam*Math.PI*2+l.ph)}
 /* ---------- estilo "Traço": uma caneta por pessoa ----------
    A linha só nasce quando alguém começa a falar. Palavras curtas e soltas ("yo… yo… yo") fazem a caneta dar voltas;
    rap rápido e contínuo faz uma linha que flui. Em silêncio a caneta pára e o desenho fica. */
@@ -484,7 +493,7 @@ function readAudio(t){
   var sens=S.sens/100,v=0,beat=false;
   if(mode==="sim"){
     if(t>simPhrase){simOn=!simOn||Math.random()<.75;simKind=Math.random()<.5?"yo":"flow";simPhrase=t+(simOn?(simKind==="yo"?2.4:3+Math.random()*3):1+Math.random()*1.5)}
-    v=simOn?(simKind==="yo"?((t%.6)<.2?.85:0):(.55+.35*Math.sin(t*1.7))):0;
+    v=simOn?(simKind==="yo"?((t%.6)<.2?.85:0):(.3+.6*Math.pow(Math.abs(Math.sin(t*9.4)),.6))):0;
     if(t>=simNext){beat=true;simNext=t+60/92}
   }else if(an&&(mode==="mic"||(mode==="file"&&audioEl&&!audioEl.paused))){
     an.getByteFrequencyData(fbuf);var lo=band(40,160);
