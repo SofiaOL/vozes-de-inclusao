@@ -304,18 +304,18 @@ function step(t,dt,au){
     if(l.state==="entering"){if(au.voiceRaw>.12&&!paused)l.draw=Math.min(1,l.draw+dt*(.12+.18*au.voice));if(l.draw>=1)l.state="on"}
     if(l.state==="leaving"){l.erase=Math.min(1,l.erase+dt/1.2);if(l.erase>=1){l.state="off";l.draw=0}}
     /* a voz manda: em silêncio a linha fica quase lisa e lenta; a cantar ganha ondas grandes e rápidas e vibra */
-    var tgt=on?au.voice:0;l.a+=(tgt-l.a)*Math.min(1,dt*(tgt>l.a?14:3));
+    var tgt=on?au.voice:0;l.a+=(tgt-l.a)*Math.min(1,dt*(tgt>l.a?4:1.6));
     /* em silêncio: linha completamente lisa e parada */
     var tAmp=room*l.a+room*.15*swell*l.a;
-    l.amp+=(Math.min(room,tAmp)-l.amp)*Math.min(1,dt*5);
-    l.spd+=((3.2*l.a+.8*swell*l.a)-l.spd)*Math.min(1,dt*4);
+    l.amp+=(Math.min(room,tAmp)-l.amp)*Math.min(1,dt*2.2);
+    l.spd+=((3.2*l.a+.8*swell*l.a)-l.spd)*Math.min(1,dt*1.8);
     var offT=n>1?(vi/(n-1)-.5)*room*1.3:0;if(on)l.off=(l.off==null?offT:l.off+(offT-l.off)*Math.min(1,dt*2));
     var rT=Math.min(22,room*.12)*Math.min(1,au.voiceRaw*1.4)*(on?1:0);
     l.ra+=(rT-l.ra)*Math.min(1,dt*(rT>l.ra?20:6));
     if(!paused){l.ph+=dt*l.spd;l.rip+=dt*(28+14*l.a)}
-    l.tph=(l.tph||0)+dt*(3+5*l.a);
-    var tipT=l.state==="entering"?room*.85*l.a*Math.sin(l.tph+(vi>0?vi*2:0)):0;
-    l.tip=(l.tip||0)+(tipT-(l.tip||0))*Math.min(1,dt*7);
+    l.tph=(l.tph||0)+dt*(1.4+1.8*l.a);
+    var tipT=l.state==="entering"?room*.7*l.a*Math.sin(l.tph+(vi>0?vi*2:0)):0;
+    l.tip=(l.tip||0)+(tipT-(l.tip||0))*Math.min(1,dt*2.5);
   });
 }
 function newChapter(){
@@ -323,7 +323,7 @@ function newChapter(){
   chapters.push({n:cur+1,bg:songBg()});songMix={_keep:1};
 }
 /* vibração: a linha inteira treme com a voz (sem dobrar a forma, para continuar lisa) */
-function waveY(l,x){return H/2+(l.off||0)+l.amp*Math.sin(x/l.lam*Math.PI*2-l.ph)+l.ra*Math.sin(l.rip)+l.ra*.18*Math.sin(x/900*Math.PI*2-l.rip*.5)}
+function waveY(l,x){return H/2+(l.off||0)+l.amp*Math.sin(x/l.lam*Math.PI*2+l.ph)}
 /* ---------- estilo "Traço": uma caneta por pessoa ----------
    A linha só nasce quando alguém começa a falar. Palavras curtas e soltas ("yo… yo… yo") fazem a caneta dar voltas;
    rap rápido e contínuo faz uma linha que flui. Em silêncio a caneta pára e o desenho fica. */
